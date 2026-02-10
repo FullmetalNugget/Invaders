@@ -1,6 +1,7 @@
 // ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 #include "raylib.h"
+#include "raygui.h"
 #include <iostream>
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
