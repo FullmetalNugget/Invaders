@@ -5,6 +5,10 @@
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
+void drawFPS() {
+  DrawText(TextFormat("FPS: %d", GetFPS()), 10, 10, 20, PURPLE);
+}
+
 int main()
 {
   SetConfigFlags(FLAG_VSYNC_HINT); // enable VSync
@@ -15,6 +19,8 @@ int main()
 
     // Blanking screen to black, can change bg color here
     ClearBackground(BLACK);
+
+    drawFPS();
 
 
     EndDrawing();
