@@ -7,6 +7,7 @@ enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
 int main()
 {
+  SetConfigFlags(FLAG_VSYNC_HINT); // enable VSync
   InitWindow(600, 800, "Not so Space Invaders");
 
   while(!WindowShouldClose()) {
