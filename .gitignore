@@ -1,6 +1,13 @@
 # Fuck microsoft
 .vs
-ConsoleApp1/build
+./ConsoleApp1/build
+# CMake
+build/
+**/build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
 
 # Prerequisites
 *.d
