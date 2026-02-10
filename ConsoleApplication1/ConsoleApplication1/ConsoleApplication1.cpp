@@ -2,7 +2,7 @@
 //
 #include "raylib.h"
 #include <iostream>
-§
+
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
 int main()
