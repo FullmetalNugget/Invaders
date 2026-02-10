@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/app.dir/ConsoleApplication1/ConsoleApplication1.cpp.o -o app  /usr/lib64/libraylib.so -L/usr/lib64 -lraylib

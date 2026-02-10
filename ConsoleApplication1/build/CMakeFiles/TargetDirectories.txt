@@ -1,0 +1,3 @@
+/home/roni/git/Invaders/ConsoleApplication1/build/CMakeFiles/app.dir
+/home/roni/git/Invaders/ConsoleApplication1/build/CMakeFiles/edit_cache.dir
+/home/roni/git/Invaders/ConsoleApplication1/build/CMakeFiles/rebuild_cache.dir
