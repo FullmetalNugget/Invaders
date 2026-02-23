@@ -2,6 +2,9 @@
 #include "raygui.h"
 #include <iostream>
 #include <cmath>
+#include <map>
+#include <string>
+#include <vector>
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
@@ -15,6 +18,8 @@ void drawFPS() {
 #define BOSS_WIDTH           70
 #define BOSS_HEIGHT          40
 #define MAX_BULLETS          20
+
+
 
 typedef struct {
     Rectangle rect;
