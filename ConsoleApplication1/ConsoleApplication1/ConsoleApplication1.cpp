@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "Player.h"
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
@@ -12,8 +13,6 @@ void drawFPS() {
     DrawText(TextFormat("FPS: %d", GetFPS()), 10, 10, 20, PURPLE);
 }
 
-#define PLAYER_SPEED         5
-#define PLAYER_BULLET_SPEED   8
 #define BOSS_BULLET_SPEED     5
 #define BOSS_WIDTH           70
 #define BOSS_HEIGHT          40
@@ -22,13 +21,6 @@ void drawFPS() {
 // ----- GLOBAL VARIABLES -----
 GameState gameState = MENU;
 
-Rectangle player = { 275, 750, 50, 30 };
-
-struct Bullet {
-    Rectangle rect;
-    Vector2 velocity;
-    bool active;
-};
 
 Bullet playerBullet = {0};
 Bullet bossBullets[MAX_BULLETS] = {0};
@@ -48,6 +40,7 @@ int score = 0;
 
 // Map to store loaded textures
 std::map<std::string, Texture2D> textures;
+Player* player;  // global pointer, initially nullptr
 
 
 // ----- FUNCTION PROTOTYPES -----
@@ -61,6 +54,19 @@ void HandleBossBehavior();
 void HandleBossBullets();
 void CheckCollisions();
 void drawFPS();
+void loadTextures();
+
+void unload() {
+      // Unload all textures
+    for (auto &pair : textures) {
+        UnloadTexture(pair.second);
+    }
+    textures.clear();
+
+    delete player;
+
+    CloseWindow();
+}
 
 int main()
 {
@@ -74,17 +80,10 @@ int main()
     boss.shootTimer = 0.0f;
 
     Bullet bossBullets[MAX_BULLETS] = { 0 };
+    loadTextures();
 
-    // List of texture files and IDs
-    std::vector<std::pair<std::string, std::string>> textureFiles = {
-        {"player", "../img/player.png"},
-        {"enemy", "../img/ship.png"},
-    };
+    player = new Player(100, 500, 64, 64, &textures["player"]);
 
-
-    for (std::pair<std::string, std::string> &entry : textureFiles) {
-      textures[entry.first] = LoadTexture(entry.second.c_str());
-}
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -102,8 +101,22 @@ int main()
         drawFPS();
         EndDrawing();
     }
-    CloseWindow();
+    unload();
     return 0;
+}
+
+void loadTextures() {
+  // List of texture files and IDs
+  std::vector<std::pair<std::string, std::string>> textureFiles = {
+      {"player", "../img/player.png"},
+      {"enemy", "../img/ship.png"},
+  };
+
+
+  for (auto &entry : textureFiles) {
+    textures[entry.first] = LoadTexture(entry.second.c_str());
+  }
+
 }
 
 // ----- MENU -----
@@ -112,10 +125,10 @@ void UpdateMenu() {
 
     if (IsKeyPressed(KEY_ENTER)) {
         gameState = PLAYING;
-        player.x = 275;
+        player->rect.x = 275;
         lives = 3;
         score = 0;
-        playerBullet.active = false;
+        player->bullet.active = false;
         boss.rect.x = 265;
         boss.health = 5;
         boss.moveDir = 1.0f;
@@ -126,44 +139,19 @@ void UpdateMenu() {
     if (IsKeyPressed(KEY_ESCAPE)) gameState = EXIT;
 }
 
+void drawClasses() {
+  player->update();
+  player->draw();
+}
+
 // ----- PLAYING -----
 void UpdatePlaying() {
-    HandlePlayerInput();
-    HandlePlayerBullet();
     HandleBossBehavior();
     HandleBossBullets();
     CheckCollisions();
     DrawPlaying();
 }
 
-void HandlePlayerInput() {
-    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
-        player.x -= PLAYER_SPEED;
-        if (player.x < 0) player.x = 0;
-    }
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
-        player.x += PLAYER_SPEED;
-        if (player.x + player.width > GetScreenWidth()) 
-            player.x = GetScreenWidth() - player.width;
-    }
-
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !playerBullet.active) {
-        playerBullet.rect = (Rectangle){player.x + player.width/2 - 2, player.y - 10, 4, 10};
-        playerBullet.active = true;
-        playerBullet.velocity.x = 0;
-        playerBullet.velocity.y = -PLAYER_BULLET_SPEED;
-    }
-}
-
-void HandlePlayerBullet() {
-    if (!playerBullet.active) return;
-
-    playerBullet.rect.x += playerBullet.velocity.x;
-    playerBullet.rect.y += playerBullet.velocity.y;
-
-    if (playerBullet.rect.y + playerBullet.rect.height < 0)
-        playerBullet.active = false;
-}
 
 void HandleBossBehavior() {
     boss.rect.x += boss.moveDir * boss.speed;
@@ -220,15 +208,17 @@ void HandleBossBullets() {
 }
 
 void CheckCollisions() {
-    if (playerBullet.active && CheckCollisionRecs(playerBullet.rect, boss.rect)) {
-        playerBullet.active = false;
+    // Check if the player's bullet hit the boss
+    if (player->bullet.active && CheckCollisionRecs(player->bullet.rect, boss.rect)) {
+        player->bullet.active = false;
         boss.health--;
         score += 10;
         if (boss.health <= 0) gameState = MENU;
     }
 
+    // Check if any boss bullets hit the player
     for (int i = 0; i < MAX_BULLETS; i++) {
-        if (bossBullets[i].active && CheckCollisionRecs(bossBullets[i].rect, player)) {
+        if (bossBullets[i].active && CheckCollisionRecs(bossBullets[i].rect, player->rect)) {
             bossBullets[i].active = false;
             lives--;
             if (lives <= 0) gameState = MENU;
@@ -238,19 +228,9 @@ void CheckCollisions() {
 }
 
 void DrawPlaying() {
-    DrawTexturePro(
-        textures["player"],
-        { 0, 0,
-          (float)textures["player"].width,
-          (float)textures["player"].height },
-        player,
-        { 0, 0 },
-        0.0f,
-        WHITE
-    );
-    if (playerBullet.active) DrawRectangleRec(playerBullet.rect, YELLOW);
-    DrawRectangleRec(boss.rect, RED);
+    drawClasses();
 
+    DrawRectangleRec(boss.rect, RED);
     DrawRectangle(boss.rect.x, boss.rect.y - 15, boss.rect.width, 10, DARKGRAY);
     DrawRectangle(boss.rect.x, boss.rect.y - 15,
                   boss.rect.width * (boss.health / 5.0f), 10, RED);
@@ -262,7 +242,6 @@ void DrawPlaying() {
     DrawText(TextFormat("Score: %d", score), 10, 70, 20, WHITE);
     DrawText(TextFormat("Boss Health: %d", boss.health), 10, 100, 20, WHITE);
 }
-
 // ----- OPTIONS -----
 void UpdateOptions() {
     DrawText("OPTIONS - Press ESC to return", 150, 350, 20, LIGHTGRAY);

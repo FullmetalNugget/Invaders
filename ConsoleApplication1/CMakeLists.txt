@@ -13,6 +13,7 @@ endif()
 # Add executable
 add_executable(app
     ConsoleApplication1/ConsoleApplication1.cpp
+    ConsoleApplication1/Player.cpp
 )
 
 # Link libraries
