@@ -18,6 +18,15 @@ void Player::update() {
         if (rect.x + rect.width > GetScreenWidth())
             rect.x = GetScreenWidth() - rect.width;
     }
+    if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
+        rect.y -= SPEED;
+        if (rect.y < 0) rect.y = 0;
+    }
+    if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
+        rect.y += SPEED;
+        if (rect.y + rect.height > GetScreenWidth())
+            rect.y = GetScreenWidth() - rect.height;
+    }
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !bullet.active) {
         bullet.rect = { rect.x + rect.width/2 - 2, rect.y - 10, 4, 10 };
