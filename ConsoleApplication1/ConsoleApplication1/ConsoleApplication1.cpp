@@ -7,6 +7,7 @@
 #include "Player.h"
 #include "Boss.h"
 #include "background.h"
+#include "AudioManager.h"
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
@@ -41,15 +42,41 @@ int main()
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(600, 800, "Not so Space Invaders");
 
-    Background bg("../img/background.jpg", 100.0f);    
+    // Initialize audio and load background music via AudioManager
+    AudioManager::Get().Init();
+    if (AudioManager::Get().LoadMusic("../music/Music.mp3")) {
+        AudioManager::Get().SetVolume(0.5f);
+        AudioManager::Get().Play(); // starts playing and will be updated each frame
+    }
+
+    Background bg("../img/background.jpg", 100.0f);
 
     loadTextures();
 
     player = new Player(100, 500, 34, 34, &textures["player"]);
     boss = new Boss(265, 50, 70, 40, &textures["enemy"]);
 
+    bool musicPlaying = AudioManager::Get().IsPlaying();
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+
+        // Keep the music stream updated each frame
+        if (AudioManager::Get().IsLoaded()) {
+            AudioManager::Get().Update();
+        }
+
+        // Mute (M)
+        if (IsKeyPressed(KEY_M) && AudioManager::Get().IsLoaded()) {
+            if (musicPlaying) {
+                AudioManager::Get().Pause();
+                musicPlaying = false;
+            } else {
+                AudioManager::Get().Resume();
+                musicPlaying = true;
+            }
+        }
+
         bg.Update();
 
         BeginDrawing();
@@ -96,6 +123,11 @@ void unload() {
 
     delete player;
     delete boss;
+
+    // Stop and let AudioManager destructor clean up on shutdown
+    if (AudioManager::Get().IsLoaded()) {
+        AudioManager::Get().Stop();
+    }
 
     CloseWindow();
 }
