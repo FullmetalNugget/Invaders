@@ -124,6 +124,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Background.cpp" />
     <ClCompile Include="Boss.cpp" />
     <ClCompile Include="ConsoleApplication1.cpp" />
     <ClCompile Include="Player.cpp" />
@@ -133,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\raygui.h" />
+    <ClInclude Include="Background.h" />
     <ClInclude Include="Boss.h" />
     <ClInclude Include="Player.h" />
   </ItemGroup>

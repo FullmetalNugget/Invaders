@@ -6,6 +6,7 @@
 #include <vector>
 #include "Player.h"
 #include "Boss.h"
+#include "background.h"
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
@@ -40,6 +41,8 @@ int main()
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(600, 800, "Not so Space Invaders");
 
+    Background bg("../img/background.jpg", 100.0f);    
+
     loadTextures();
 
     player = new Player(100, 500, 34, 34, &textures["player"]);
@@ -47,9 +50,11 @@ int main()
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        bg.Update();
 
         BeginDrawing();
         ClearBackground(BLACK);
+        bg.Draw();
 
         switch (gameState) {
         case MENU: UpdateMenu(); break;
