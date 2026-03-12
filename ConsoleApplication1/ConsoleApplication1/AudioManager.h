@@ -1,20 +1,19 @@
 #pragma once
 #include "raylib.h"
 #include <string>
+#include <unordered_map>
 
 class AudioManager {
 public:
-    // Access the singleton instance
     static AudioManager& Get() {
         static AudioManager instance; // created on first use, destroyed automatically
         return instance;
     }
 
-    // Delete copy/move constructors
     AudioManager(const AudioManager&) = delete;
     AudioManager& operator=(const AudioManager&) = delete;
 
-    // Initialize audio
+    // Initialize audio subsystem
     bool Init() {
         if (!initialized) {
             InitAudioDevice();
@@ -24,78 +23,79 @@ public:
         return initialized;
     }
 
-    // Load a music stream from file path. Returns true on success.
+    // Music API
     bool LoadMusic(const std::string& path) {
         if (!initialized && !Init()) return false;
-        // Unload previous if loaded
-        if (loaded) {
+        if (musicLoaded) {
             StopMusicStream(music);
             UnloadMusicStream(music);
-            loaded = false;
-            playing = false;
+            musicLoaded = false;
+            musicPlaying = false;
         }
         music = LoadMusicStream(path.c_str());
-        loaded = (music.ctxData != nullptr);
-        if (!loaded) TraceLog(LOG_WARNING, "AudioManager: failed to load music '%s' (working dir: %s)", path.c_str(), GetWorkingDirectory());
-        return loaded;
+        musicLoaded = (music.ctxData != nullptr);
+        if (!musicLoaded) TraceLog(LOG_WARNING, "AudioManager: failed to load music '%s' (working dir: %s)", path.c_str(), GetWorkingDirectory());
+        return musicLoaded;
     }
-
-    // Playback control
-    void Play() {
-        if (loaded) {
-            PlayMusicStream(music);
-            playing = true;
-        }
-    }
-    void Pause() {
-        if (loaded) {
-            PauseMusicStream(music);
-            playing = false;
-        }
-    }
-    void Resume() {
-        if (loaded) {
-            ResumeMusicStream(music);
-            playing = true;
-        }
-    }
-    void Stop() {
-        if (loaded) {
-            StopMusicStream(music);
-            playing = false;
-        }
-    }
-
-    // Must be called each frame to stream music
-    void Update() {
-        if (!loaded) return;
+    void PlayMusic() { if (musicLoaded) { PlayMusicStream(music); musicPlaying = true; } }
+    void PauseMusic() { if (musicLoaded) PauseMusicStream(music); musicPlaying = false; }
+    void ResumeMusic() { if (musicLoaded) ResumeMusicStream(music); musicPlaying = true; }
+    void StopMusic() { if (musicLoaded) { StopMusicStream(music); musicPlaying = false; } }
+    void UpdateMusic() {
+        if (!musicLoaded) return;
         UpdateMusicStream(music);
-
-        // Manual looping to ensure continuous playback across builds
         float played = GetMusicTimePlayed(music);
         float length = GetMusicTimeLength(music);
         if (length > 0.0f && played >= length) {
             PlayMusicStream(music);
-            playing = true;
+            musicPlaying = true;
         }
     }
+    // Call the global raylib function explicitly (avoid calling this class method recursively)
+    void SetMusicVolume(float v) { if (musicLoaded) ::SetMusicVolume(music, v); musicVolume = v; }
+    bool IsMusicLoaded() const { return musicLoaded; }
+    bool IsMusicPlaying() const { return musicPlaying; }
 
-    void SetVolume(float v) {
-        if (loaded) SetMusicVolume(music, v);
-        volume = v;
+    // Sound effects API
+    bool LoadSoundEffect(const std::string& key, const std::string& path) {
+        if (!initialized && !Init()) return false;
+        // If previously loaded under same key, unload first
+        auto it = sounds.find(key);
+        if (it != sounds.end()) {
+            UnloadSound(it->second);
+            sounds.erase(it);
+        }
+        Sound s = LoadSound(path.c_str());
+        // store sound even if loading failed; PlaySound will no-op if invalid
+        sounds.emplace(key, s);
+        return true;
     }
 
-    bool IsLoaded() const { return loaded; }
-    bool IsPlaying() const { return playing; }
+    void PlaySoundEffect(const std::string& key) {
+        auto it = sounds.find(key);
+        if (it != sounds.end()) PlaySound(it->second);
+    }
+
+    void UnloadAllSounds() {
+        for (auto& p : sounds) UnloadSound(p.second);
+        sounds.clear();
+    }
+
+    // Cleanup handled in destructor
+    void SetMasterVolume(float v) {
+        masterVolume = v;
+        ::SetMasterVolume(masterVolume); // call global raylib function explicitly
+    }
 
 private:
-    AudioManager() : initialized(false), loaded(false), playing(false), volume(1.0f) {}
+    AudioManager() : initialized(false), musicLoaded(false), musicPlaying(false), musicVolume(1.0f), masterVolume(1.0f) {}
     ~AudioManager() {
-        if (loaded) {
+        if (musicLoaded) {
             StopMusicStream(music);
             UnloadMusicStream(music);
-            loaded = false;
+            musicLoaded = false;
         }
+        UnloadAllSounds();
         if (initialized) {
             CloseAudioDevice();
             initialized = false;
@@ -104,8 +104,10 @@ private:
 
     Music music{};
     bool initialized;
-    bool loaded;
-    bool playing;
-    float volume;
-};
+    bool musicLoaded;
+    bool musicPlaying;
+    float musicVolume;
+    float masterVolume;
 
+    std::unordered_map<std::string, Sound> sounds;
+};

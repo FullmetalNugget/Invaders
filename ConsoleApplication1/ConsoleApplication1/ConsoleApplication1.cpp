@@ -8,6 +8,7 @@
 #include "Boss.h"
 #include "background.h"
 #include "AudioManager.h"
+#include "Menu.h"
 
 enum GameState { MENU, PLAYING, OPTIONS, EXIT };
 
@@ -25,8 +26,13 @@ Boss* boss = nullptr;
 // Texture storage
 std::map<std::string, Texture2D> textures;
 
+// Current level selection (1..3)
+int currentLevel = 1;
+
+// Menu instance
+Menu menu;
+
 // ----- FUNCTION PROTOTYPES -----
-void UpdateMenu();
 void UpdatePlaying();
 void UpdateOptions();
 void DrawPlaying();
@@ -45,8 +51,9 @@ int main()
     // Initialize audio and load background music via AudioManager
     AudioManager::Get().Init();
     if (AudioManager::Get().LoadMusic("../music/Music.mp3")) {
-        AudioManager::Get().SetVolume(0.5f);
-        AudioManager::Get().Play(); // starts playing and will be updated each frame
+        AudioManager::Get().SetMusicVolume(0.5f);
+        AudioManager::Get().PlayMusic();
+        AudioManager::Get().LoadSoundEffect("player_shoot", "../music/player_shoot.mp3");
     }
 
     Background bg("../img/background.jpg", 100.0f);
@@ -56,23 +63,23 @@ int main()
     player = new Player(100, 500, 34, 34, &textures["player"]);
     boss = new Boss(265, 50, 70, 40, &textures["enemy"]);
 
-    bool musicPlaying = AudioManager::Get().IsPlaying();
+    bool musicPlaying = AudioManager::Get().IsMusicPlaying();
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
 
         // Keep the music stream updated each frame
-        if (AudioManager::Get().IsLoaded()) {
-            AudioManager::Get().Update();
+        if (AudioManager::Get().IsMusicLoaded()) {
+            AudioManager::Get().UpdateMusic();
         }
 
         // Mute (M)
-        if (IsKeyPressed(KEY_M) && AudioManager::Get().IsLoaded()) {
+        if (IsKeyPressed(KEY_M) && AudioManager::Get().IsMusicLoaded()) {
             if (musicPlaying) {
-                AudioManager::Get().Pause();
+                AudioManager::Get().PauseMusic();
                 musicPlaying = false;
             } else {
-                AudioManager::Get().Resume();
+                AudioManager::Get().ResumeMusic();
                 musicPlaying = true;
             }
         }
@@ -84,7 +91,35 @@ int main()
         bg.Draw();
 
         switch (gameState) {
-        case MENU: UpdateMenu(); break;
+        case MENU:
+            menu.Update();
+            menu.Draw();
+            if (menu.IsStartRequested()) {
+                // start playing with selected level
+                currentLevel = menu.GetSelectedLevel();
+                gameState = PLAYING;
+
+                // Reset player
+                player->rect.x = 275;
+                player->rect.y = 500;
+                player->bullet.active = false;
+
+                lives = 3;
+                score = 0;
+
+                // Reset and set boss level (use setLevel to enable cumulative attacks)
+                boss->rect.x = 265;
+                boss->rect.y = 50;
+                boss->health = 40;
+                boss->moveDir = 1.0f;
+                boss->shootTimer = 0.0f;
+                boss->setLevel(currentLevel);
+                for (auto& b : boss->bullets) b.active = false;
+
+                menu.ResetStart(); // clear the start request
+            }
+            break;
+
         case PLAYING:
             player->update();
             boss->update(dt);
@@ -92,8 +127,14 @@ int main()
             CheckCollisions();
             DrawPlaying();
             break;
-        case OPTIONS: UpdateOptions(); break;
-        case EXIT: CloseWindow(); return 0;
+
+        case OPTIONS:
+            UpdateOptions();
+            break;
+
+        case EXIT:
+            CloseWindow();
+            return 0;
         }
 
         drawFPS();
@@ -125,39 +166,14 @@ void unload() {
     delete boss;
 
     // Stop and let AudioManager destructor clean up on shutdown
-    if (AudioManager::Get().IsLoaded()) {
-        AudioManager::Get().Stop();
+    if (AudioManager::Get().IsMusicLoaded()) {
+        AudioManager::Get().StopMusic();
     }
 
     CloseWindow();
 }
 
-// ----- MENU -----
-void UpdateMenu() {
-    DrawText("Not So Space Invaders", 150, 200, 40, GREEN);
-
-    if (IsKeyPressed(KEY_ENTER)) {
-        gameState = PLAYING;
-        player->rect.x = 275;
-        player->rect.y = 500;
-        player->bullet.active = false;
-
-        lives = 3;
-        score = 0;
-
-        // Reset boss
-        boss->rect.x = 265;
-        boss->rect.y = 50;
-        boss->health = 40;
-        boss->moveDir = 1.0f;
-        boss->shootTimer = 0.0f;
-        for (auto& b : boss->bullets) b.active = false;
-    }
-
-    if (IsKeyPressed(KEY_ESCAPE)) gameState = EXIT;
-}
-
-// ----- PLAYER COLLISION WITH MAP -----
+// ----- PLAYING helpers -----
 void PlayerCollision() {
     if (player->rect.x < mapBounds.x) player->rect.x = mapBounds.x;
     if (player->rect.x + player->rect.width > mapBounds.width)
@@ -167,7 +183,6 @@ void PlayerCollision() {
         player->rect.y = mapBounds.height - player->rect.height;
 }
 
-// ----- COLLISIONS -----
 void CheckCollisions() {
     // Player bullet hits boss
     if (player->bullet.active && CheckCollisionRecs(player->bullet.rect, boss->rect)) {
@@ -188,7 +203,6 @@ void CheckCollisions() {
     }
 }
 
-// ----- DRAW PLAYING -----
 void DrawPlaying() {
     player->draw();
     boss->draw();
@@ -198,13 +212,11 @@ void DrawPlaying() {
     DrawText(TextFormat("Boss Health: %d", boss->health), 10, 100, 20, WHITE);
 }
 
-// ----- OPTIONS -----
 void UpdateOptions() {
     DrawText("OPTIONS - Press ESC to return", 150, 350, 20, LIGHTGRAY);
     if (IsKeyPressed(KEY_ESCAPE)) gameState = MENU;
 }
 
-// ----- DRAW FPS -----
 void drawFPS() {
     DrawText(TextFormat("FPS: %d", GetFPS()), 10, 10, 20, PURPLE);
 }

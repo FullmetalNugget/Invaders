@@ -127,6 +127,7 @@
     <ClCompile Include="Background.cpp" />
     <ClCompile Include="Boss.cpp" />
     <ClCompile Include="ConsoleApplication1.cpp" />
+    <ClCompile Include="Menu.cpp" />
     <ClCompile Include="Player.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -137,6 +138,7 @@
     <ClInclude Include="AudioManager.h" />
     <ClInclude Include="Background.h" />
     <ClInclude Include="Boss.h" />
+    <ClInclude Include="Menu.h" />
     <ClInclude Include="Player.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

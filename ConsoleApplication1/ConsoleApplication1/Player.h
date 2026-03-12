@@ -20,4 +20,11 @@ public:
 
     void update();         // handles input + bullet movement
     void draw();           // draws player + bullet
+
+private:
+    // auto-fire support: hold button to shoot every fireCooldown seconds
+    float fireCooldown = 0.2f;
+    float fireTimer = 0.0f;
+
+    void tryShoot(); // internal helper
 };
