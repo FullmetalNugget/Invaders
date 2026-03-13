@@ -2,7 +2,7 @@
 #include "raylib.h"
 
 Menu::Menu()
-    : selectedLevel(1), startRequested(false)
+    : selectedLevel(1), startRequested(false), optionsRequested(false)
 {}
 
 void Menu::Update() {
@@ -17,6 +17,11 @@ void Menu::Update() {
     // Start game
     if (IsKeyPressed(KEY_ENTER)) {
         startRequested = true;
+    }
+
+    // Open options
+    if (IsKeyPressed(KEY_O)) {
+        optionsRequested = true;
     }
 }
 
@@ -61,4 +66,8 @@ void Menu::Draw() const {
     const char* musicHint = "Toggle Music: M";
     int musicW = MeasureText(musicHint, 14);
     DrawText(musicHint, screenW - musicW - 10, 10, 14, LIGHTGRAY);
+
+    const char* optionsHint = "Options: O";
+    int optionsW = MeasureText(optionsHint, 14);
+    DrawText(optionsHint, screenW - optionsW - 10, 30, 14, LIGHTGRAY);
 }

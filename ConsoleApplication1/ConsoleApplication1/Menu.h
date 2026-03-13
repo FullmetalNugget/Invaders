@@ -17,10 +17,15 @@ public:
     // Selected level (1..3)
     int GetSelectedLevel() const { return selectedLevel; }
 
-    // Reset start flag (useful if you reuse the menu)
+    // Returns true when player requested options
+    bool IsOptionsRequested() const { return optionsRequested; }
+
+    // Reset start/options flags (useful if you reuse the menu)
     void ResetStart() { startRequested = false; }
+    void ResetOptions() { optionsRequested = false; }
 
 private:
     int selectedLevel;
     bool startRequested;
+    bool optionsRequested;
 };

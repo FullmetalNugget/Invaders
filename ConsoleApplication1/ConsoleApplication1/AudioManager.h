@@ -2,6 +2,8 @@
 #include "raylib.h"
 #include <string>
 #include <unordered_map>
+#include <fstream>
+#include <sstream>
 
 class AudioManager {
 public:
@@ -85,6 +87,40 @@ public:
     void SetMasterVolume(float v) {
         masterVolume = v;
         ::SetMasterVolume(masterVolume); // call global raylib function explicitly
+    }
+
+    // Settings persistence
+    bool SaveSettings(const std::string& path) {
+        std::ofstream ofs(path.c_str());
+        if (!ofs.is_open()) return false;
+        ofs << "masterVolume=" << masterVolume << "\n";
+        ofs << "musicVolume=" << musicVolume << "\n";
+        ofs.close();
+        return true;
+    }
+
+    bool LoadSettings(const std::string& path) {
+        std::ifstream ifs(path.c_str());
+        if (!ifs.is_open()) return false;
+        std::string line;
+        while (std::getline(ifs, line)) {
+            std::istringstream iss(line);
+            std::string key;
+            if (std::getline(iss, key, '=')) {
+                std::string val;
+                if (std::getline(iss, val)) {
+                    try {
+                        float f = std::stof(val);
+                        if (key == "masterVolume") SetMasterVolume(f);
+                        else if (key == "musicVolume") SetMusicVolume(f);
+                    } catch (...) {
+                        // ignore malformed value
+                    }
+                }
+            }
+        }
+        ifs.close();
+        return true;
     }
 
 private:

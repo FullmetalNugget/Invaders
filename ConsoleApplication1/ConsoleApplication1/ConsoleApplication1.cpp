@@ -4,13 +4,15 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cctype>
 #include "Player.h"
 #include "Boss.h"
 #include "background.h"
 #include "AudioManager.h"
 #include "Menu.h"
+#include "Options.h"
 
-enum GameState { MENU, PLAYING, OPTIONS, EXIT };
+enum GameState { MENU, PLAYING, OPTIONS, END_SCREEN, EXIT };
 
 // ----- GLOBAL VARIABLES -----
 GameState gameState = MENU;
@@ -29,13 +31,21 @@ std::map<std::string, Texture2D> textures;
 // Current level selection (1..3)
 int currentLevel = 1;
 
-// Menu instance
+// Menu and Options instances
 Menu menu;
+Options options;
+
+// Secret code: "inkrelo"
+static const std::string SECRET_CODE = "inkrelo";
+std::string typedBuffer;       // keeps last N typed chars
+bool secretUnlocked = false;   // set true when code entered
+float secretNotifyTimer = 0.0f; // time to show "Secret unlocked" message
 
 // ----- FUNCTION PROTOTYPES -----
 void UpdatePlaying();
 void UpdateOptions();
 void DrawPlaying();
+void DrawEndScreen();
 void PlayerCollision();
 void CheckCollisions();
 void loadTextures();
@@ -50,6 +60,10 @@ int main()
 
     // Initialize audio and load background music via AudioManager
     AudioManager::Get().Init();
+
+    // Load persisted settings (if any) before loading/playing music
+    AudioManager::Get().LoadSettings("settings.cfg");
+
     if (AudioManager::Get().LoadMusic("../music/Music.mp3")) {
         AudioManager::Get().SetMusicVolume(0.5f);
         AudioManager::Get().PlayMusic();
@@ -83,6 +97,32 @@ int main()
                 musicPlaying = true;
             }
         }
+
+        // --- Secret code input handling (collect character input each frame) ---
+        // Use GetCharPressed to read typed characters (handles repeated keys correctly)
+        int keyChar = GetCharPressed();
+        while (keyChar > 0) {
+            char ch = static_cast<char>(keyChar);
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+
+            if (ch >= 'a' && ch <= 'z') {
+                typedBuffer.push_back(ch);
+                // keep only the most recent SECRET_CODE.length() chars
+                if (typedBuffer.size() > SECRET_CODE.size())
+                    typedBuffer.erase(0, typedBuffer.size() - SECRET_CODE.size());
+
+                if (typedBuffer == SECRET_CODE) {
+                    secretUnlocked = true;
+                    secretNotifyTimer = 3.0f; // show confirmation for 3 seconds
+                    typedBuffer.clear();
+                }
+            }
+
+            keyChar = GetCharPressed();
+        }
+
+        // decrease secret notification timer
+        if (secretNotifyTimer > 0.0f) secretNotifyTimer -= dt;
 
         bg.Update();
 
@@ -118,6 +158,10 @@ int main()
 
                 menu.ResetStart(); // clear the start request
             }
+            if (menu.IsOptionsRequested()) {
+                menu.ResetOptions();
+                gameState = OPTIONS;
+            }
             break;
 
         case PLAYING:
@@ -129,7 +173,16 @@ int main()
             break;
 
         case OPTIONS:
-            UpdateOptions();
+            options.Update();
+            options.Draw();
+            if (options.IsBackRequested()) {
+                options.ResetBack();
+                gameState = MENU;
+            }
+            break;
+
+        case END_SCREEN:
+            DrawEndScreen();
             break;
 
         case EXIT:
@@ -189,7 +242,20 @@ void CheckCollisions() {
         player->bullet.active = false;
         boss->health--;
         score += 10;
-        if (boss->health <= 0) gameState = MENU;
+        if (boss->health <= 0) {
+            // Show END_SCREEN when boss dies if level 3 OR secret unlocked
+            if (boss->getLevel() == 3 || secretUnlocked) {
+                // stop music to emphasize the end screen (optional)
+                if (AudioManager::Get().IsMusicLoaded()) AudioManager::Get().StopMusic();
+
+                // Disable remaining boss bullets
+                for (auto& b : boss->bullets) b.active = false;
+
+                gameState = END_SCREEN;
+            } else {
+                gameState = MENU;
+            }
+        }
     }
 
     // Boss bullets hit player
@@ -210,6 +276,62 @@ void DrawPlaying() {
     DrawText(TextFormat("Lives: %d", lives), 10, 40, 20, WHITE);
     DrawText(TextFormat("Score: %d", score), 10, 70, 20, WHITE);
     DrawText(TextFormat("Boss Health: %d", boss->health), 10, 100, 20, WHITE);
+
+    // Show temporary confirmation when secret code is entered
+    if (secretNotifyTimer > 0.0f) {
+        const char* msg = "Secret unlocked!";
+        int size = 18;
+        int w = MeasureText(msg, size);
+        DrawText(msg, (GetScreenWidth() - w) / 2, 130, size, GREEN);
+    }
+}
+
+void DrawEndScreen() {
+    // Full black background for the end screen
+    ClearBackground(BLACK);
+
+    const char* message = "The Earth has successfully been destroyed.";
+    const int fontSize = 28;
+    int screenW = GetScreenWidth();
+    int screenH = GetScreenHeight();
+    int textW = MeasureText(message, fontSize);
+    int x = (screenW - textW) / 2;
+    int y = screenH / 2 - fontSize / 2;
+
+    DrawText(message, x, y, fontSize, GREEN);
+
+    const char* instr = "Press ENTER or ESC to return to menu";
+    int instrSize = 16;
+    int instrW = MeasureText(instr, instrSize);
+    DrawText(instr, (screenW - instrW) / 2, y + 60, instrSize, LIGHTGRAY);
+
+    // Return to menu on Enter or Escape
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) {
+        // Reset state like returning to menu
+        // Reset player position and stats
+        player->rect.x = 275;
+        player->rect.y = 500;
+        player->bullet.active = false;
+
+        lives = 3;
+        score = 0;
+
+        // Reset boss for next run
+        boss->rect.x = 265;
+        boss->rect.y = 50;
+        boss->health = 40;
+        boss->moveDir = 1.0f;
+        boss->shootTimer = 0.0f;
+        boss->setLevel(1);
+        for (auto& b : boss->bullets) b.active = false;
+
+        // Optionally resume music
+        if (AudioManager::Get().IsMusicLoaded()) {
+            AudioManager::Get().PlayMusic();
+        }
+
+        gameState = MENU;
+    }
 }
 
 void UpdateOptions() {
